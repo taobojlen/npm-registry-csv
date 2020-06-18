@@ -10,6 +10,10 @@
   "author": "Tao Bojlén",
   "license": "GPL-3.0-or-later",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/tao_oat/npm-registry-csv.git"
+  },
   "dependencies": {
     "axios": "^0.19.2",
     "got": "^11.3.0",
