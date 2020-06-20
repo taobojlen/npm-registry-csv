@@ -14,11 +14,16 @@
     "type": "git",
     "url": "https://gitlab.com/tao_oat/npm-registry-csv.git"
   },
+  "homepage": "https://gitlab.com/tao_oat/npm-registry-csv",
   "dependencies": {
     "axios": "^0.19.2",
-    "got": "^11.3.0",
-    "ora": "^4.0.4",
-    "pretty-bytes": "^5.3.0"
+    "cli-progress": "^3.8.2",
+    "csv-stringify": "^5.5.0",
+    "fs-minipass": "^2.1.0",
+    "map-stream": "0.0.7",
+    "minipass-json-stream": "^1.0.1",
+    "pretty-bytes": "^5.3.0",
+    "semver": "^7.3.2"
   },
   "devDependencies": {
     "prettier": "^2.0.5"
