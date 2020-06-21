@@ -40,4 +40,4 @@ And several relationships:
 - `(VersionRequirement)--[REQUIREMENT_OF]-->(Package)`
 - `(VersionRequirement)--[RESOLVES_TO]-->(Version)`
 - `(User)--[MAINTAINS]-->(Version)`
-- `(Package)--[IN_REGISTRY}-->(Registry)`
+- `(Package)--[IN_REGISTRY]-->(Registry)`

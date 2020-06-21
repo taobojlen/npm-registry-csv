@@ -3,8 +3,10 @@ import { ALL_DOCS_DEST } from "./constants.js";
 import JSONStream from "minipass-json-stream";
 import map from "map-stream";
 import semver from "semver";
-import cliProgress from "cli-progress"
+import cliProgress from "cli-progress";
 import { createCsvs } from "./save.js";
+import TrieMap from "mnemonist/trie-map.js";
+import Trie from "mnemonist/trie.js";
 
 export const createObjects = (latestRevision) => {
   let numNodes = 0;
@@ -30,23 +32,23 @@ export const createObjects = (latestRevision) => {
   registryCsv.write(["npm", latestRevision]);
   // Save versions of each package for later to handle version resolutions
   // {name--range => {id: version requirement ID, name: name, range: range}}
-  const versionRequirements = {};
+  const versionRequirements = new TrieMap();
   // {name => list of versions}
-  const packageVersions = {};
+  const packageVersions = new TrieMap();
   // {name--version => version ID}
-  const versionMap = {};
-  // {npm-username => user ID}
-  const users = {};
+  const versionMap = new TrieMap();
+  // Contains all usernames already saved
+  const usersTrie = new Trie();
 
   // Helper function to avoid saving version requirements
   // more than once. Returns the ID of the VR
   const saveVersionRequirement = (name, range) => {
     const key = `${name}--${range}`;
-    if (key in versionRequirements) {
-      return versionRequirements[key].id;
+    if (versionRequirements.has(key)) {
+      return versionRequirements.get(key).id;
     } else {
       const id = getNextId();
-      versionRequirements[key] = { id, name, range };
+      versionRequirements.set(key, { id, name, range });
       versionRequirementCsv.write([id, range]);
       requirementOfCsv.write([id, `npm-${name}`]);
       return id;
@@ -55,9 +57,9 @@ export const createObjects = (latestRevision) => {
 
   const saveUser = (username) => {
     const id = `npm-${username}`;
-    if (!(username in users)) {
+    if (!usersTrie.has(username)) {
       userCsv.write([id, username]);
-      users[username] = id;
+      usersTrie.add(username);
     }
     return id;
   };
@@ -66,19 +68,22 @@ export const createObjects = (latestRevision) => {
   return new Promise((resolve, reject) => {
     try {
       const fileStream = new fs.ReadStream(ALL_DOCS_DEST);
-      const jsonStream = JSONStream.parse("rows.*.doc")
+      const jsonStream = JSONStream.parse("rows.*.doc");
       let totalRows;
-      const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic)
-      jsonStream.on("header", data => {
+      const bar = new cliProgress.SingleBar(
+        {},
+        cliProgress.Presets.shades_classic
+      );
+      jsonStream.on("header", (data) => {
         // Everything before the rows, which includes the total_rows field
-        totalRows = data["total_rows"]
-      })
+        totalRows = data["total_rows"];
+      });
       fileStream.pipe(jsonStream).pipe(
         map((doc, callback) => {
           if (idx === 0) {
-            bar.start(totalRows, 0)
+            bar.start(totalRows, 0);
           } else if (idx % 1000 === 0) {
-            bar.update(idx)
+            bar.update(idx);
           }
 
           // Save package
@@ -90,12 +95,12 @@ export const createObjects = (latestRevision) => {
           // Save its versions, their dependencies, and their maintainers
           const versions = doc["versions"];
           if (!versions) {
-            packageVersions[name] = [];
+            packageVersions.set(name, []);
             callback();
             return;
           }
           const times = doc["time"];
-          packageVersions[name] = Object.keys(versions);
+          packageVersions.set(name, Object.keys(versions));
 
           Object.entries(versions).forEach(([version, versionDetails]) => {
             if (typeof versionDetails != "object") {
@@ -111,7 +116,7 @@ export const createObjects = (latestRevision) => {
             }
             versionCsv.write([versionId, version, timestamp]);
             versionOfCsv.write([versionId, packageId]);
-            versionMap[`${name}--${version}`] = versionId;
+            versionMap.set(`${name}--${version}`, versionId);
 
             // Save dependencies
             if (!!versionDetails["dependencies"]) {
@@ -151,13 +156,15 @@ export const createObjects = (latestRevision) => {
             const saveMaintainer = (maintainer) => {
               // Sometimes each maintainer is a {name: "...", email: "..."} object,
               // other times it's just a string.
-              let name;
-              if ("name" in maintainer) {
-                name = maintainer["name"];
+              let username;
+              if (typeof maintainer === "object" && "name" in maintainer) {
+                username = maintainer["name"];
+              } else if (typeof maintainer === "string") {
+                username = maintainer;
               } else {
-                name = maintainer;
+                return;
               }
-              const userId = saveUser(name);
+              const userId = saveUser(username);
               maintainsCsv.write([userId, versionId]);
             };
 
@@ -199,28 +206,30 @@ export const resolveVersions = (
   resolvesToCsv,
   closeAllCsvs
 ) => {
-  const total = versionRequirements.length();
+  const total = versionRequirements.size;
   let idx = 1;
-  Object.values(versionRequirements).forEach(({ id, name, range }) => {
+  for (let vr of versionRequirements) {
+    const { id, name, range } = vr[1];
     if (idx % 100 === 0) {
       console.log(`${idx}/${total} done`);
     }
-    versions = packageVersions[name];
+    const versions = packageVersions.get(name);
+    if (!versions || versions.length === 0) {
+      continue;
+    }
     const resolution = resolveVersionRequirement(versions, range);
     if (!!resolution) {
-      versionId = versionMap[`${name}--${version}`];
+      versionId = versionMap.get(`${name}--${version}`);
       resolvesToCsv.write([id, versionId]);
     }
     idx += 1;
-  });
+  }
   closeAllCsvs();
 };
 
 const resolveVersionRequirement = (versions, range) => {
   const matchingVersions = versions
-    .filter((version) => {
-      return semver.satisfies(version, range);
-    })
+    .filter((version) => semver.satisfies(version, range))
     .sort(semver.rcompare);
 
   if (matchingVersions.length > 0) {

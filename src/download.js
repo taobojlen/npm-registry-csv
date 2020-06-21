@@ -1,16 +1,14 @@
 import fs from "fs";
 import axios from "axios";
 import prettyBytes from "pretty-bytes";
-import {
-  ALL_DOCS_DEST,
-} from "./constants.js";
+import { ALL_DOCS_DEST } from "./constants.js";
 
 export const getCurrentRevision = async () => {
   const endpoint =
     "https://replicate.npmjs.com/_changes?descending=true&limit=1";
   try {
     const response = await axios.get(endpoint).then((r) => r.data);
-    return response["last_seq"]
+    return response["last_seq"];
   } catch (e) {
     throw e;
   }
@@ -32,7 +30,7 @@ export const getAllDocs = async () => {
         data.on("data", (chunk) => {
           downloadedSize += chunk.length;
           if (downloadedSize % 100000000 === 0) {
-            console.log(prettyBytes(downloadedSize))
+            console.log(prettyBytes(downloadedSize));
           }
         });
         data.on("end", () => {
