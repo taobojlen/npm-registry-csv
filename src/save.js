@@ -14,18 +14,18 @@ const createWriteStream = (path) => {
 
 export const createCsvs = () => {
   // Nodes
-  const registryPath = "./data/registries.csv";
-  const packagePath = "./data/packages.csv";
-  const versionPath = "./data/versions.csv";
-  const versionRequirementPath = "./data/versionRequirement.csv";
-  const userPath = "./data/user.csv";
+  const registryPath = "./data/nodes/registry.csv";
+  const packagePath = "./data/nodes/package.csv";
+  const versionPath = "./data/nodes/version.csv";
+  const versionRequirementPath = "./data/nodes/versionRequirement.csv";
+  const userPath = "./data/nodes/user.csv";
   // Relationships
-  const versionOfPath = "./data/versionOf.csv";
-  const dependsOnPath = "./data/dependsOn.csv";
-  const requirementOfPath = "./data/requirementOf.csv";
-  const resolvesToPath = "./data/resolvesTo.csv";
-  const maintainsPath = "./data/maintains.csv";
-  const inRegistryPath = "./data/inRegistry.csv";
+  const versionOfPath = "./data/relationships/versionOf.csv";
+  const dependsOnPath = "./data/relationships/dependsOn.csv";
+  const requirementOfPath = "./data/relationships/requirementOf.csv";
+  const resolvesToPath = "./data/relationships/resolvesTo.csv";
+  const maintainsPath = "./data/relationships/maintains.csv";
+  const inRegistryPath = "./data/relationships/inRegistry.csv";
 
   const paths = [
     registryPath,
@@ -70,7 +70,7 @@ export const createCsvs = () => {
     "name",
   ]);
   const versionCsv = createStringifier(versionWriter, [
-    "id:ID(Version",
+    "id:ID(Version)",
     "version",
     "timestamp",
   ]);
@@ -107,7 +107,7 @@ export const createCsvs = () => {
   ]);
 
   const closeAllCsvs = () => {
-    writers = [
+    const writers = [
       registryWriter,
       packageWriter,
       versionOfWriter,

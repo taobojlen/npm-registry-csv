@@ -24,18 +24,20 @@ const main = async () => {
       resolvesToCsv,
       closeAllCsvs,
     } = await createObjects(latestRevision);
-  } catch(e) {
+    console.log("Resolving version ranges");
+    resolveVersions(
+      versionRequirements,
+      packageVersions,
+      versionMap,
+      resolvesToCsv,
+      closeAllCsvs
+    );
+    console.log("Done! View .csvs in the data/ directory.");
+    return;
+  } catch (e) {
     console.error(e);
-    return
+    return;
   }
-  console.log("Resolving version ranges");
-  resolveVersions(
-    versionRequirements,
-    packageVersions,
-    versionMap,
-    resolvesToCsv,
-    closeAllCsvs
-  );
 };
 
 main();

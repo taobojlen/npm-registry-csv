@@ -8,13 +8,28 @@ import { createCsvs } from "./save.js";
 import TrieMap from "mnemonist/trie-map.js";
 import Trie from "mnemonist/trie.js";
 
+class Counter {
+  constructor() {
+    this.count = 0;
+  }
+
+  next() {
+    this.count += 1;
+    return this.count;
+  }
+}
+
+const getPackageId = (name) => {
+  return `npm-${name}`;
+};
+const getUserId = (username) => {
+  return `npm-${username}`;
+};
+
 export const createObjects = (latestRevision) => {
-  let numNodes = 0;
-  const getNextId = () => {
-    const prev = numNodes;
-    numNodes += 1;
-    return prev;
-  };
+  const versionCounter = new Counter();
+  const versionRequirementCounter = new Counter();
+
   const {
     registryCsv,
     packageCsv,
@@ -37,8 +52,10 @@ export const createObjects = (latestRevision) => {
   const packageVersions = new TrieMap();
   // {name--version => version ID}
   const versionMap = new TrieMap();
-  // Contains all usernames already saved
-  const usersTrie = new Trie();
+  // {set of all packages saved thus far}
+  const packages = new Trie();
+  // {set of all users saved thus far}
+  const users = new Trie();
 
   // Helper function to avoid saving version requirements
   // more than once. Returns the ID of the VR
@@ -47,20 +64,39 @@ export const createObjects = (latestRevision) => {
     if (versionRequirements.has(key)) {
       return versionRequirements.get(key).id;
     } else {
-      const id = getNextId();
-      versionRequirements.set(key, { id, name, range });
-      versionRequirementCsv.write([id, range]);
-      requirementOfCsv.write([id, `npm-${name}`]);
-      return id;
+      const vrId = versionRequirementCounter.next();
+      const packageId = savePackage(name);
+      versionRequirements.set(key, { id: vrId, name, range });
+      versionRequirementCsv.write([vrId, range]);
+      requirementOfCsv.write([vrId, packageId]);
+      return vrId;
     }
   };
 
-  const saveUser = (username) => {
-    const id = `npm-${username}`;
-    if (!usersTrie.has(username)) {
-      userCsv.write([id, username]);
-      usersTrie.add(username);
+  const savePackage = (name) => {
+    const id = getPackageId(name);
+    if (!packages.has(name)) {
+      packageCsv.write([id, name]);
+      inRegistryCsv.write([id, "npm"]);
+      packages.add(name);
     }
+    return id;
+  };
+
+  const saveUser = (username) => {
+    const id = getUserId(username);
+    if (!users.has(username)) {
+      userCsv.write([id, username]);
+      users.add(username);
+    }
+    return id;
+  };
+
+  const saveVersion = (name, packageId, version, timestamp) => {
+    const id = versionCounter.next();
+    versionCsv.write([id, version, timestamp]);
+    versionOfCsv.write([id, packageId]);
+    versionMap.set(`${name}--${version}`, id);
     return id;
   };
 
@@ -85,17 +121,21 @@ export const createObjects = (latestRevision) => {
           } else if (idx % 1000 === 0) {
             bar.update(idx);
           }
+          if (idx > 10000) {
+            idx += 1;
+            callback();
+            return;
+          }
 
           // Save package
           const name = doc["_id"];
-          const packageId = `npm-${name}`;
-          packageCsv.write([packageId, name]);
-          inRegistryCsv.write([packageId, "npm"]);
+          const packageId = savePackage(name);
 
           // Save its versions, their dependencies, and their maintainers
           const versions = doc["versions"];
           if (!versions) {
             packageVersions.set(name, []);
+            idx += 1;
             callback();
             return;
           }
@@ -107,16 +147,13 @@ export const createObjects = (latestRevision) => {
               return;
             }
             // Save version
-            const versionId = getNextId();
             let timestamp;
             if (!!times && version in times) {
               timestamp = times[version];
             } else {
               timestamp = "";
             }
-            versionCsv.write([versionId, version, timestamp]);
-            versionOfCsv.write([versionId, packageId]);
-            versionMap.set(`${name}--${version}`, versionId);
+            const versionId = saveVersion(name, packageId, version, timestamp);
 
             // Save dependencies
             if (!!versionDetails["dependencies"]) {
@@ -184,16 +221,17 @@ export const createObjects = (latestRevision) => {
       );
 
       fileStream.on("end", () => {
-        resolveVersions(
+        bar.stop();
+        resolve({
           versionRequirements,
           packageVersions,
           versionMap,
           resolvesToCsv,
-          closeAllCsvs
-        );
-        resolve();
+          closeAllCsvs,
+        });
       });
     } catch (e) {
+      console.error(e);
       reject(e);
     }
   });
@@ -207,23 +245,27 @@ export const resolveVersions = (
   closeAllCsvs
 ) => {
   const total = versionRequirements.size;
-  let idx = 1;
+  let idx = 0;
+  const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+  bar.start(total, 0);
   for (let vr of versionRequirements) {
-    const { id, name, range } = vr[1];
-    if (idx % 100 === 0) {
-      console.log(`${idx}/${total} done`);
+    if (idx % 10000 === 0) {
+      bar.update(idx);
     }
+    const { id, name, range } = vr[1];
     const versions = packageVersions.get(name);
     if (!versions || versions.length === 0) {
+      idx += 1;
       continue;
     }
-    const resolution = resolveVersionRequirement(versions, range);
-    if (!!resolution) {
-      versionId = versionMap.get(`${name}--${version}`);
+    const resolvedVersion = resolveVersionRequirement(versions, range);
+    if (!!resolvedVersion) {
+      const versionId = versionMap.get(`${name}--${resolvedVersion}`);
       resolvesToCsv.write([id, versionId]);
     }
     idx += 1;
   }
+  bar.stop();
   closeAllCsvs();
 };
 
@@ -235,9 +277,7 @@ const resolveVersionRequirement = (versions, range) => {
   if (matchingVersions.length > 0) {
     return matchingVersions[0];
   } else {
-    console.error(
-      `No version of ${versionRequirement.packageName} matches the range ${versionRequirement.requirement}`
-    );
+    // TODO: log ranges that don't resolve to anything
     return;
   }
 };

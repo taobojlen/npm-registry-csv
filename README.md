@@ -1,9 +1,5 @@
 # npm-registry-csv
 
-```
-$ npx npm-registry-csv
-```
-
 This script lets you download data about the npm registry (packages, their versions, maintainers, and dependencies)
 and store it as .csv files for easy import into e.g. Neo4j.
 
@@ -13,6 +9,27 @@ The script downloads a large JSON file from npm (~45GB as of 2020-06-18) and par
 As far as I can tell, npm throttles the download, so the first requirements are (a) time and (b) ample disk space.
 
 The data is processed using streams, but it does need to save a lot of information in memory. With the 45GB JSON file it uses about 3GB of RAM.
+
+# Running and importing
+
+To run the script, just use `node index.js`. You may want to run Node with `--max-old-space-size=8192` if you run into memory issues.
+
+To import into Neo4j, make sure that there isn't an existing database already. Then, from the `data/` directory, run
+```
+neo4j-admin import \
+  --id-type=STRING \
+  --nodes:Package=nodes/package.csv \
+  --nodes:Registry=nodes/registry.csv \
+  --nodes:User=nodes/user.csv \
+  --nodes:VersionRequirement=nodes/versionRequirement.csv \
+  --nodes:Version=nodes/version.csv \
+  --relationships:DEPENDS_ON=relationships/dependsOn.csv \
+  --relationships:IN_REGISTRY=relationships/inRegistry.csv \
+  --relationships:MAINTAINS=relationships/maintains.csv \
+  --relationships:REQUIREMENT_OF=relationships/requirementOf.csv \
+  --relationships:RESOLVES_TO=relationships/resolvesTo.csv \
+  --relationships:VERSION_OF=relationships/versionOf.csv
+```
 
 # Data modeling
 
@@ -30,6 +47,7 @@ There are five node types with the following properties:
 - VersionRequirement
   - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User
+  - `id` (the username prefixed with `npm-`)
   - `username`
 
 And several relationships:
