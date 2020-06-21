@@ -121,11 +121,6 @@ export const createObjects = (latestRevision) => {
           } else if (idx % 1000 === 0) {
             bar.update(idx);
           }
-          if (idx > 10000) {
-            idx += 1;
-            callback();
-            return;
-          }
 
           // Save package
           const name = doc["_id"];
