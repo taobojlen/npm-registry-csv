@@ -8,11 +8,11 @@ and store it as .csv files for easy import into e.g. Neo4j.
 The script downloads a large JSON file from npm (~45GB as of 2020-06-18) and parses it.
 As far as I can tell, npm throttles the download, so the first requirements are (a) time and (b) ample disk space.
 
-The data is processed using streams, but it does need to save a lot of information in memory. With the 45GB JSON file it uses about 3GB of RAM.
+The data is processed using streams, but it does need to save a lot of information in memory. With the 45GB JSON file it uses just above 10GB of RAM.
 
 # Running and importing
 
-To run the script, just use `node index.js`. You may want to run Node with `--max-old-space-size=8192` if you run into memory issues.
+To run the script, use `node --max-old-space-size=16384 index.js`.
 
 To import into Neo4j, make sure that there isn't an existing database already. Then, from the `data/` directory, run
 ```

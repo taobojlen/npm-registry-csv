@@ -72,7 +72,7 @@ export const createCsvs = () => {
   const versionCsv = createStringifier(versionWriter, [
     "id:ID(Version)",
     "version",
-    "timestamp",
+    "timestamp:datetime",
   ]);
   const versionRequirementCsv = createStringifier(versionRequirementWriter, [
     "id:ID(VersionRequirement)",
