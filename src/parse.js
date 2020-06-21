@@ -20,10 +20,10 @@ class Counter {
 }
 
 const getPackageId = (name) => {
-  return `npm-${name}`;
+  return `npm-${name.trim()}`;
 };
 const getUserId = (username) => {
-  return `npm-${username}`;
+  return `npm-${username.trim()}`;
 };
 
 export const createObjects = (latestRevision) => {
@@ -67,16 +67,17 @@ export const createObjects = (latestRevision) => {
       const vrId = versionRequirementCounter.next();
       const packageId = savePackage(name);
       versionRequirements.set(key, { id: vrId, name, range });
-      versionRequirementCsv.write([vrId, range]);
+      versionRequirementCsv.write([vrId, range.trim()]);
       requirementOfCsv.write([vrId, packageId]);
       return vrId;
     }
   };
 
   const savePackage = (name) => {
-    const id = getPackageId(name);
-    if (!packages.has(name)) {
-      packageCsv.write([id, name]);
+    const cleanedName = name.trim()
+    const id = getPackageId(cleanedName);
+    if (!packages.has(cleanedName)) {
+      packageCsv.write([id, cleanedName]);
       inRegistryCsv.write([id, "npm"]);
       packages.add(name);
     }
@@ -84,19 +85,22 @@ export const createObjects = (latestRevision) => {
   };
 
   const saveUser = (username) => {
-    const id = getUserId(username);
-    if (!users.has(username)) {
-      userCsv.write([id, username]);
+    const cleanedUsername = username.trim()
+    const id = getUserId(cleanedUsername);
+    if (!users.has(cleanedUsername)) {
+      userCsv.write([id, cleanedUsername]);
       users.add(username);
     }
     return id;
   };
 
   const saveVersion = (name, packageId, version, timestamp) => {
+    const cleanedName = name.trim()
+    const cleanedVersion = version.trim()
     const id = versionCounter.next();
-    versionCsv.write([id, version, timestamp]);
+    versionCsv.write([id, cleanedVersion, timestamp]);
     versionOfCsv.write([id, packageId]);
-    versionMap.set(`${name}--${version}`, id);
+    versionMap.set(`${cleanedName}--${version}`, id);
     return id;
   };
 
