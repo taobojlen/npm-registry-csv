@@ -60,21 +60,27 @@ export const createObjects = (latestRevision) => {
   // Helper function to avoid saving version requirements
   // more than once. Returns the ID of the VR
   const saveVersionRequirement = (name, range) => {
-    const key = `${name}--${range}`;
+    const cleanedName = "" + name;
+    const cleanedRange = "" + range;
+    const key = `${cleanedName}--${cleanedRange}`;
     if (versionRequirements.has(key)) {
       return versionRequirements.get(key).id;
     } else {
       const vrId = versionRequirementCounter.next();
-      const packageId = savePackage(name);
-      versionRequirements.set(key, { id: vrId, name, range });
-      versionRequirementCsv.write([vrId, range.trim()]);
+      const packageId = savePackage(cleanedName);
+      versionRequirements.set(key, {
+        id: vrId,
+        name: cleanedName,
+        range: cleanedRange,
+      });
+      versionRequirementCsv.write([vrId, cleanedRange.trim()]);
       requirementOfCsv.write([vrId, packageId]);
       return vrId;
     }
   };
 
   const savePackage = (name) => {
-    const cleanedName = name.trim()
+    const cleanedName = name.trim();
     const id = getPackageId(cleanedName);
     if (!packages.has(cleanedName)) {
       packageCsv.write([id, cleanedName]);
@@ -85,7 +91,7 @@ export const createObjects = (latestRevision) => {
   };
 
   const saveUser = (username) => {
-    const cleanedUsername = username.trim()
+    const cleanedUsername = username.trim();
     const id = getUserId(cleanedUsername);
     if (!users.has(cleanedUsername)) {
       userCsv.write([id, cleanedUsername]);
@@ -95,12 +101,12 @@ export const createObjects = (latestRevision) => {
   };
 
   const saveVersion = (name, packageId, version, timestamp) => {
-    const cleanedName = name.trim()
-    const cleanedVersion = version.trim()
+    const cleanedName = name.trim();
+    const cleanedVersion = version.trim();
     const id = versionCounter.next();
     versionCsv.write([id, cleanedVersion, timestamp]);
     versionOfCsv.write([id, packageId]);
-    versionMap.set(`${cleanedName}--${version}`, id);
+    versionMap.set(`${cleanedName}--${cleanedVersion}`, id);
     return id;
   };
 
@@ -156,37 +162,37 @@ export const createObjects = (latestRevision) => {
 
             // Save dependencies
             if (!!versionDetails["dependencies"]) {
-              Object.entries(versionDetails["dependencies"]).forEach(
-                ([depName, depRange]) => {
+              Object.entries(versionDetails["dependencies"])
+                .filter(([depName, depRange]) => !!depName && !!depRange)
+                .forEach(([depName, depRange]) => {
                   const requirementId = saveVersionRequirement(
                     depName,
                     depRange
                   );
                   dependsOnCsv.write([versionId, "normal", requirementId]);
-                }
-              );
+                });
             }
             if (!!versionDetails["devDependencies"]) {
-              Object.entries(versionDetails["devDependencies"]).forEach(
-                ([depName, depRange]) => {
+              Object.entries(versionDetails["devDependencies"])
+                .filter(([depName, depRange]) => !!depName && !!depRange)
+                .forEach(([depName, depRange]) => {
                   const requirementId = saveVersionRequirement(
                     depName,
                     depRange
                   );
                   dependsOnCsv.write([versionId, "dev", requirementId]);
-                }
-              );
+                });
             }
             if (!!versionDetails["peerDependencies"]) {
-              Object.entries(versionDetails["peerDependencies"]).forEach(
-                ([depName, depRange]) => {
+              Object.entries(versionDetails["peerDependencies"])
+                .filter(([depName, depRange]) => !!depName && !!depRange)
+                .forEach(([depName, depRange]) => {
                   const requirementId = saveVersionRequirement(
                     depName,
                     depRange
                   );
                   dependsOnCsv.write([versionId, "peer", requirementId]);
-                }
-              );
+                });
             }
 
             const saveMaintainer = (maintainer) => {
@@ -253,13 +259,13 @@ export const resolveVersions = (
     }
     const { id, name, range } = vr[1];
     const versions = packageVersions.get(name);
-    if (!versions || versions.length === 0) {
+    if (!versions || versions.length === 0 || !name || !id) {
       idx += 1;
       continue;
     }
     const resolvedVersion = resolveVersionRequirement(versions, range);
     if (!!resolvedVersion) {
-      const versionId = versionMap.get(`${name}--${resolvedVersion}`);
+      const versionId = versionMap.get(`${name.trim()}--${resolvedVersion}`);
       resolvesToCsv.write([id, versionId]);
     }
     idx += 1;
