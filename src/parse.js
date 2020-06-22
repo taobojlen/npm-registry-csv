@@ -83,9 +83,9 @@ export const createObjects = (latestRevision) => {
     const cleanedName = name.trim();
     const id = getPackageId(cleanedName);
     if (!packages.has(cleanedName)) {
+      packages.add(cleanedName);
       packageCsv.write([id, cleanedName]);
       inRegistryCsv.write([id, "npm"]);
-      packages.add(name);
     }
     return id;
   };
@@ -94,8 +94,8 @@ export const createObjects = (latestRevision) => {
     const cleanedUsername = username.trim();
     const id = getUserId(cleanedUsername);
     if (!users.has(cleanedUsername)) {
+      users.add(cleanedUsername);
       userCsv.write([id, cleanedUsername]);
-      users.add(username);
     }
     return id;
   };
