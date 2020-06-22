@@ -18,6 +18,7 @@ To import into Neo4j, make sure that there isn't an existing database already. T
 ```
 neo4j-admin import \
   --id-type=STRING \
+  --multiline-fields=true \
   --nodes:Package=nodes/package.csv \
   --nodes:Registry=nodes/registry.csv \
   --nodes:User=nodes/user.csv \
