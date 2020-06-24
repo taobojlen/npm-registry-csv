@@ -46,6 +46,8 @@ There are five node types with the following properties:
   - `version`
   - `timestamp`: the time of publication in ISO8601 format, e.g. `2020-06-24T13:25:00.000Z`
   - `repository`: URL of the git repo, e.g. `ssh://git@github.com/organization/repo.git`
+  - `file_count`: the number of files in the extracted tarball
+  - `unpacked_size`: size (in bytes) of the unpacked tarball
 - VersionRequirement
   - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User

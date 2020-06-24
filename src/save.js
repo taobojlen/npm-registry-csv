@@ -77,6 +77,8 @@ export const createCsvs = () => {
     "version",
     "timestamp:datetime",
     "repository",
+    "file_count",
+    "unpacked_size"
   ]);
   const versionRequirementCsv = createStringifier(versionRequirementWriter, [
     "id:ID(VersionRequirement)",

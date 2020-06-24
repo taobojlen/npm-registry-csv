@@ -107,24 +107,31 @@ export const createObjects = (latestRevision) => {
     return id;
   };
 
-  const saveVersion = (name, packageId, version, timestamp, repository) => {
+  const saveVersion = (name, packageId, version, timestamp, repository, dist) => {
     // Only handles GitHub repos but these make up ~98% of
     // npm packages, according to
     // https://github.com/nice-registry/all-the-package-repos
-    const id = versionCounter.next();
     let normalizedRepo;
     if (typeof repository === "string") {
       normalizedRepo = gh(repository);
     } else if (typeof repository === "object" && "url" in repository) {
       normalizedRepo = gh(repository["url"]);
     }
-
     let cleanedRepo;
     if (!!normalizedRepo) {
       cleanedRepo = normalizedRepo.https_url;
     }
 
-    versionCsv.write([id, version.trim(), timestamp, cleanedRepo]);
+    // Handle info about the unpacked tarball
+    let fileCount;
+    let unpackedSize;
+    if (!!dist) {
+      fileCount = dist.fileCount;
+      unpackedSize = dist.unpackedSize;
+    }
+
+    const id = versionCounter.next();
+    versionCsv.write([id, version.trim(), timestamp, cleanedRepo, fileCount, unpackedSize]);
     versionOfCsv.write([id, packageId]);
 
     const key = getVersionId(name, version);
@@ -205,12 +212,14 @@ export const createObjects = (latestRevision) => {
             } else {
               timestamp = "";
             }
+
             const versionId = saveVersion(
               name,
               packageId,
               version,
               timestamp,
-              doc["repository"]
+              doc["repository"],
+              versionDetails["dist"],
             );
 
             // Save dependencies
