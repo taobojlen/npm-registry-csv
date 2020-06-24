@@ -2,6 +2,8 @@ import fs from "fs-minipass";
 import { ALL_DOCS_DEST } from "./constants.js";
 import JSONStream from "minipass-json-stream";
 import map from "map-stream";
+import _ from "lodash";
+import gh from "github-url-to-object";
 import semver from "semver";
 import cliProgress from "cli-progress";
 import { createCsvs } from "./save.js";
@@ -26,6 +28,10 @@ const getUserId = (username) => {
   return `npm-${username.trim()}`;
 };
 
+const getVersionId = (name, version) => {
+  return `${name.trim()}--${version.trim()}`;
+};
+
 export const createObjects = (latestRevision) => {
   const versionCounter = new Counter();
   const versionRequirementCounter = new Counter();
@@ -42,6 +48,7 @@ export const createObjects = (latestRevision) => {
     resolvesToCsv,
     maintainsCsv,
     inRegistryCsv,
+    nextVersionCsv,
     closeAllCsvs,
   } = createCsvs();
   registryCsv.write(["npm", latestRevision]);
@@ -100,14 +107,53 @@ export const createObjects = (latestRevision) => {
     return id;
   };
 
-  const saveVersion = (name, packageId, version, timestamp) => {
-    const cleanedName = name.trim();
-    const cleanedVersion = version.trim();
+  const saveVersion = (name, packageId, version, timestamp, repository) => {
+    // Only handles GitHub repos but these make up ~98% of
+    // npm packages, according to
+    // https://github.com/nice-registry/all-the-package-repos
     const id = versionCounter.next();
-    versionCsv.write([id, cleanedVersion, timestamp]);
+    let normalizedRepo;
+    if (typeof repository === "string") {
+      normalizedRepo = gh(repository);
+    } else if (typeof repository === "object" && "url" in repository) {
+      normalizedRepo = gh(repository["url"]);
+    }
+
+    let cleanedRepo;
+    if (!!normalizedRepo) {
+      cleanedRepo = normalizedRepo.https_url;
+    }
+
+    versionCsv.write([id, version.trim(), timestamp, cleanedRepo]);
     versionOfCsv.write([id, packageId]);
-    versionMap.set(`${cleanedName}--${cleanedVersion}`, id);
+
+    const key = getVersionId(name, version);
+    versionMap.set(key, id);
     return id;
+  };
+
+  const saveDependencies = (versionId, dependencies, type) => {
+    Object.entries(dependencies)
+      .filter(([depName, depRange]) => !!depName && !!depRange)
+      .forEach(([depName, depRange]) => {
+        const requirementId = saveVersionRequirement(depName, depRange);
+        dependsOnCsv.write([versionId, type, requirementId]);
+      });
+  };
+
+  const saveMaintainer = (versionId, maintainer) => {
+    // Sometimes each maintainer is a {name: "...", email: "..."} object,
+    // other times it's just a string.
+    let username;
+    if (typeof maintainer === "object" && "name" in maintainer) {
+      username = maintainer["name"];
+    } else if (typeof maintainer === "string") {
+      username = maintainer;
+    } else {
+      return;
+    }
+    const userId = saveUser(username);
+    maintainsCsv.write([userId, versionId]);
   };
 
   let idx = 0;
@@ -134,7 +180,8 @@ export const createObjects = (latestRevision) => {
 
           // Save package
           const name = doc["_id"];
-          const packageId = savePackage(name);
+          const repo = doc["repository"];
+          const packageId = savePackage(name, repo);
 
           // Save its versions, their dependencies, and their maintainers
           const versions = doc["versions"];
@@ -158,66 +205,66 @@ export const createObjects = (latestRevision) => {
             } else {
               timestamp = "";
             }
-            const versionId = saveVersion(name, packageId, version, timestamp);
+            const versionId = saveVersion(
+              name,
+              packageId,
+              version,
+              timestamp,
+              doc["repository"]
+            );
 
             // Save dependencies
             if (!!versionDetails["dependencies"]) {
-              Object.entries(versionDetails["dependencies"])
-                .filter(([depName, depRange]) => !!depName && !!depRange)
-                .forEach(([depName, depRange]) => {
-                  const requirementId = saveVersionRequirement(
-                    depName,
-                    depRange
-                  );
-                  dependsOnCsv.write([versionId, "normal", requirementId]);
-                });
+              saveDependencies(
+                versionId,
+                versionDetails["dependencies"],
+                "normal"
+              );
             }
             if (!!versionDetails["devDependencies"]) {
-              Object.entries(versionDetails["devDependencies"])
-                .filter(([depName, depRange]) => !!depName && !!depRange)
-                .forEach(([depName, depRange]) => {
-                  const requirementId = saveVersionRequirement(
-                    depName,
-                    depRange
-                  );
-                  dependsOnCsv.write([versionId, "dev", requirementId]);
-                });
+              saveDependencies(
+                versionId,
+                versionDetails["devDependencies"],
+                "dev"
+              );
             }
             if (!!versionDetails["peerDependencies"]) {
-              Object.entries(versionDetails["peerDependencies"])
-                .filter(([depName, depRange]) => !!depName && !!depRange)
-                .forEach(([depName, depRange]) => {
-                  const requirementId = saveVersionRequirement(
-                    depName,
-                    depRange
-                  );
-                  dependsOnCsv.write([versionId, "peer", requirementId]);
-                });
+              saveDependencies(
+                versionId,
+                versionDetails["peerDependencies"],
+                "peer"
+              );
             }
-
-            const saveMaintainer = (maintainer) => {
-              // Sometimes each maintainer is a {name: "...", email: "..."} object,
-              // other times it's just a string.
-              let username;
-              if (typeof maintainer === "object" && "name" in maintainer) {
-                username = maintainer["name"];
-              } else if (typeof maintainer === "string") {
-                username = maintainer;
-              } else {
-                return;
-              }
-              const userId = saveUser(username);
-              maintainsCsv.write([userId, versionId]);
-            };
 
             // Save maintainers
             const maintainers = versionDetails["maintainers"];
             if (!!maintainers && Array.isArray(maintainers)) {
-              maintainers.forEach(saveMaintainer);
+              maintainers.forEach((m) => saveMaintainer(versionId, m));
             } else if (!!maintainers) {
-              Object.entries(maintainers).forEach(saveMaintainer);
+              Object.entries(maintainers).forEach((m) =>
+                saveMaintainer(versionId, m)
+              );
             }
           });
+
+          // Now our versions are saved, add NEXT_VERSION relationships between
+          // successive ones
+          const sortedVersions = semver.sort(
+            Object.keys(versions).map(semver.coerce)
+          );
+          _.zip(sortedVersions, sortedVersions.slice(1)).forEach(
+            ([vPrev, vNext]) => {
+              if (!vPrev || !vNext) {
+                return;
+              }
+              const idPrev = versionMap.get(getVersionId(name, vPrev.raw));
+              const idNext = versionMap.get(getVersionId(name, vNext.raw));
+              const timestampPrev = Date.parse(times[vPrev.raw]);
+              const timestampNext = Date.parse(times[vNext.raw]);
+              const interval = timestampNext - timestampPrev;
+              nextVersionCsv.write([idPrev, interval, idNext]);
+            }
+          );
 
           // Must call the callback to indicate that the map function is done
           idx += 1;

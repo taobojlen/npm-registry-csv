@@ -44,7 +44,8 @@ There are five node types with the following properties:
   - `name`
 - Version
   - `version`
-  - `timestamp`
+  - `timestamp`: the time of publication in ISO8601 format, e.g. `2020-06-24T13:25:00.000Z`
+  - `repository`: URL of the git repo, e.g. `ssh://git@github.com/organization/repo.git`
 - VersionRequirement
   - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User
@@ -55,8 +56,10 @@ And several relationships:
 
 - `(Version)--[VERSION_OF]-->(Package)`
 - `(Version)--[DEPENDS_ON]-->(VersionRequirement)`
-  - Has property `type` which is one of `normal`, `dev`, `peer`
+  - `type`: one of `normal`, `dev`, `peer`
 - `(VersionRequirement)--[REQUIREMENT_OF]-->(Package)`
 - `(VersionRequirement)--[RESOLVES_TO]-->(Version)`
 - `(User)--[MAINTAINS]-->(Version)`
 - `(Package)--[IN_REGISTRY]-->(Registry)`
+- `(Version)--[NEXT_VERSION]--(Version)`
+  - `interval`: the duration (in milliseconds) between the two versions

@@ -26,6 +26,7 @@ export const createCsvs = () => {
   const resolvesToPath = "./data/relationships/resolvesTo.csv";
   const maintainsPath = "./data/relationships/maintains.csv";
   const inRegistryPath = "./data/relationships/inRegistry.csv";
+  const nextVersionPath = "./data/relationships/nextVersion.csv";
 
   const paths = [
     registryPath,
@@ -39,6 +40,7 @@ export const createCsvs = () => {
     resolvesToPath,
     maintainsPath,
     inRegistryPath,
+    nextVersionPath,
   ];
   paths.forEach((path) => {
     if (fs.existsSync(path)) {
@@ -59,6 +61,7 @@ export const createCsvs = () => {
   const resolvesToWriter = createWriteStream(resolvesToPath);
   const maintainsWriter = createWriteStream(maintainsPath);
   const inRegistryWriter = createWriteStream(inRegistryPath);
+  const nextVersionWriter = createWriteStream(nextVersionPath);
 
   // Create stringifiers (nodes)
   const registryCsv = createStringifier(registryWriter, [
@@ -73,6 +76,7 @@ export const createCsvs = () => {
     "id:ID(Version)",
     "version",
     "timestamp:datetime",
+    "repository",
   ]);
   const versionRequirementCsv = createStringifier(versionRequirementWriter, [
     "id:ID(VersionRequirement)",
@@ -105,6 +109,11 @@ export const createCsvs = () => {
     ":START_ID(Package)",
     ":END_ID(Registry)",
   ]);
+  const nextVersionCsv = createStringifier(nextVersionWriter, [
+    ":START_ID(Version)",
+    "interval",
+    ":END_ID(Version)",
+  ]);
 
   const closeAllCsvs = () => {
     const writers = [
@@ -119,6 +128,7 @@ export const createCsvs = () => {
       resolvesToWriter,
       maintainsWriter,
       inRegistryWriter,
+      nextVersionWriter,
     ];
     writers.forEach((w) => {
       w.end();
@@ -137,6 +147,7 @@ export const createCsvs = () => {
     resolvesToCsv,
     maintainsCsv,
     inRegistryCsv,
+    nextVersionCsv,
     closeAllCsvs,
   };
 };
