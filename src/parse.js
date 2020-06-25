@@ -107,19 +107,30 @@ export const createObjects = (latestRevision) => {
     return id;
   };
 
-  const saveVersion = (name, packageId, version, timestamp, repository, dist) => {
+  const saveVersion = (
+    name,
+    packageId,
+    version,
+    timestamp,
+    repository,
+    dist
+  ) => {
     // Only handles GitHub repos but these make up ~98% of
     // npm packages, according to
     // https://github.com/nice-registry/all-the-package-repos
     let normalizedRepo;
-    if (typeof repository === "string") {
-      normalizedRepo = gh(repository);
-    } else if (typeof repository === "object" && "url" in repository) {
-      normalizedRepo = gh(repository["url"]);
-    }
     let cleanedRepo;
-    if (!!normalizedRepo) {
-      cleanedRepo = normalizedRepo.https_url;
+    try {
+        if (typeof repository === "string") {
+          normalizedRepo = gh(repository);
+        } else if (typeof repository === "object" && "url" in repository && !!repository["url"]) {
+          normalizedRepo = gh(repository["url"]);
+        }
+        if (!!normalizedRepo) {
+          cleanedRepo = normalizedRepo.https_url;
+        }
+    } catch {
+      console.error(`Failed to parse repo in ${name}`)
     }
 
     // Handle info about the unpacked tarball
@@ -131,7 +142,14 @@ export const createObjects = (latestRevision) => {
     }
 
     const id = versionCounter.next();
-    versionCsv.write([id, version.trim(), timestamp, cleanedRepo, fileCount, unpackedSize]);
+    versionCsv.write([
+      id,
+      version.trim(),
+      timestamp,
+      cleanedRepo,
+      fileCount,
+      unpackedSize,
+    ]);
     versionOfCsv.write([id, packageId]);
 
     const key = getVersionId(name, version);
@@ -219,7 +237,7 @@ export const createObjects = (latestRevision) => {
               version,
               timestamp,
               doc["repository"],
-              versionDetails["dist"],
+              versionDetails["dist"]
             );
 
             // Save dependencies
@@ -258,12 +276,22 @@ export const createObjects = (latestRevision) => {
 
           // Now our versions are saved, add NEXT_VERSION relationships between
           // successive ones
-          const sortedVersions = semver.sort(
-            Object.keys(versions).map(semver.coerce)
-          );
+          let sortedVersions = _.chain(Object.keys(versions))
+            .map((v) => semver.parse(v))
+            .filter((v) => !!v)
+            .uniq()
+            .sort(semver.compare)
+            .value()
+          
           _.zip(sortedVersions, sortedVersions.slice(1)).forEach(
             ([vPrev, vNext]) => {
-              if (!vPrev || !vNext) {
+              if (
+                !vPrev ||
+                !vNext ||
+                !times ||
+                !vPrev.raw in times ||
+                !vNext.raw in times
+              ) {
                 return;
               }
               const idPrev = versionMap.get(getVersionId(name, vPrev.raw));
@@ -271,7 +299,9 @@ export const createObjects = (latestRevision) => {
               const timestampPrev = Date.parse(times[vPrev.raw]);
               const timestampNext = Date.parse(times[vNext.raw]);
               const interval = timestampNext - timestampPrev;
-              nextVersionCsv.write([idPrev, interval, idNext]);
+              if (!!interval && !isNaN(interval) && !!idPrev && !!idNext) {
+                nextVersionCsv.write([idPrev, interval, idNext]);
+              }
             }
           );
 
