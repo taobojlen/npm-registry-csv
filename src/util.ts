@@ -1,5 +1,6 @@
 import gh from "github-url-to-object";
-import { Dependency } from "./types";
+import { Dependency, DependencyType } from "./types";
+import { concat } from "lodash";
 
 export const normalizeRepo = (repository: string) => {
   // Only handles GitHub repos but these make up ~98% of
@@ -28,11 +29,32 @@ export const normalizeRepo = (repository: string) => {
 };
 
 interface DependencyList {
-  [key: string]: string
+  [key: string]: string;
 }
 
-export const saveDependencies = (normalDeps?: DependencyList, devDeps?: DependencyList, peerDeps?: DependencyList): Dependency[] => {
-  const mapAndSave = (deps, type) => {
-    Object.keys(deps).forEach()
-  }
-}
+export const saveDependencies = (
+  normalDeps?: DependencyList,
+  devDeps?: DependencyList,
+  peerDeps?: DependencyList
+): Dependency[] => {
+  const mapAndSave = (
+    deps: DependencyList,
+    type: DependencyType
+  ): Dependency[] => {
+    Object.entries(deps)
+      .filter(([depName, depRange]) => !!depName && !!depRange)
+      .map(
+        ([depName, depRange]): Dependency => ({
+          package: depName,
+          range: depRange,
+          type: type,
+        })
+      );
+
+    return concat(
+      mapAndSave(normalDeps, "normal"),
+      mapAndSave(devDeps, "dev"),
+      mapAndSave(peerDeps, "peer")
+    ).filter((d) => !!d);
+  };
+};

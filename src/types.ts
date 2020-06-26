@@ -14,10 +14,10 @@ export interface User {
   username: string;
 }
 
-type DependencyType = "normal" | "dev" | "peer"
+export type DependencyType = "normal" | "dev" | "peer";
 
 export interface Dependency {
   package: string;
   range: string;
-  type: DependencyType
+  type: DependencyType;
 }
