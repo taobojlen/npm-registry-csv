@@ -21,7 +21,8 @@ const main = async () => {
       versionRequirements,
       packageVersions,
       versionMap,
-      resolvesToCsv,
+      dependsOnCsv,
+      distTags,
       closeAllCsvs,
     } = await createObjects(latestRevision);
     console.log("Resolving version ranges");
@@ -29,7 +30,8 @@ const main = async () => {
       versionRequirements,
       packageVersions,
       versionMap,
-      resolvesToCsv,
+      dependsOnCsv,
+      distTags,
       closeAllCsvs
     );
     console.log("Done! View .csvs in the data/ directory.");

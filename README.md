@@ -12,7 +12,7 @@ The data is processed using streams, but it does need to save a lot of informati
 
 # Running and importing
 
-To run the script, use `node --max-old-space-size=16384 index.js`.
+To run the script, use `node --max-old-space-size=24576 index.js`.
 
 To import into Neo4j, make sure that there isn't an existing database already. Then, from the `data/` directory, run
 ```
@@ -22,13 +22,9 @@ neo4j-admin import \
   --nodes:Package=nodes/package.csv \
   --nodes:Registry=nodes/registry.csv \
   --nodes:User=nodes/user.csv \
-  --nodes:VersionRequirement=nodes/versionRequirement.csv \
   --nodes:Version=nodes/version.csv \
   --relationships:DEPENDS_ON=relationships/dependsOn.csv \
-  --relationships:IN_REGISTRY=relationships/inRegistry.csv \
   --relationships:MAINTAINS=relationships/maintains.csv \
-  --relationships:REQUIREMENT_OF=relationships/requirementOf.csv \
-  --relationships:RESOLVES_TO=relationships/resolvesTo.csv \
   --relationships:VERSION_OF=relationships/versionOf.csv
 ```
 
@@ -36,9 +32,6 @@ neo4j-admin import \
 
 There are five node types with the following properties:
 
-- Registry
-  - `id`. There's just one node of this type with id `npm`.
-  - `last_update_check`. This is equivalent to the current revision in npm's database. This makes it easy to get incremental updates to the graph (though this script does not handle this).
 - Package
   - `id` (this is just the package name prefixed with `npm-`.)
   - `name`
@@ -48,8 +41,6 @@ There are five node types with the following properties:
   - `repository`: URL of the git repo, e.g. `ssh://git@github.com/organization/repo.git`
   - `file_count`: the number of files in the extracted tarball
   - `unpacked_size`: size (in bytes) of the unpacked tarball
-- VersionRequirement
-  - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User
   - `id` (the username prefixed with `npm-`)
   - `username`
@@ -57,11 +48,9 @@ There are five node types with the following properties:
 And several relationships:
 
 - `(Version)--[VERSION_OF]-->(Package)`
-- `(Version)--[DEPENDS_ON]-->(VersionRequirement)`
+- `(Version)--[DEPENDS_ON]-->(Version)`
   - `type`: one of `normal`, `dev`, `peer`
-- `(VersionRequirement)--[REQUIREMENT_OF]-->(Package)`
-- `(VersionRequirement)--[RESOLVES_TO]-->(Version)`
+  - `range`: the version range specified as a dependency
 - `(User)--[MAINTAINS]-->(Version)`
-- `(Package)--[IN_REGISTRY]-->(Registry)`
 - `(Version)--[NEXT_VERSION]--(Version)`
   - `interval`: the duration (in milliseconds) between the two versions

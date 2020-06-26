@@ -1,102 +1,17 @@
 import fs from "fs-minipass";
 import { ALL_DOCS_DEST } from "./constants.js";
 import JSONStream from "minipass-json-stream";
-import map from "map-stream";
+import es from "event-stream";
 import _ from "lodash";
 import gh from "github-url-to-object";
 import semver from "semver";
 import cliProgress from "cli-progress";
-import { createCsvs } from "./save.js";
-import TrieMap from "mnemonist/trie-map.js";
-import Trie from "mnemonist/trie.js";
 
-class Counter {
-  constructor() {
-    this.count = 0;
-  }
+import { savePackage, saveVersion } from "./database.js";
+import { normalizeRepo } from "./util.js";
+import { Version } from "./types.js";
 
-  next() {
-    this.count += 1;
-    return this.count;
-  }
-}
-
-const getPackageId = (name) => {
-  return `npm-${name.trim()}`;
-};
-const getUserId = (username) => {
-  return `npm-${username.trim()}`;
-};
-
-const getVersionId = (name, version) => {
-  return `${name.trim()}--${version.trim()}`;
-};
-
-export const createObjects = (latestRevision) => {
-  const versionCounter = new Counter();
-  const versionRequirementCounter = new Counter();
-
-  const {
-    registryCsv,
-    packageCsv,
-    versionCsv,
-    versionRequirementCsv,
-    userCsv,
-    versionOfCsv,
-    dependsOnCsv,
-    requirementOfCsv,
-    resolvesToCsv,
-    maintainsCsv,
-    inRegistryCsv,
-    nextVersionCsv,
-    closeAllCsvs,
-  } = createCsvs();
-  registryCsv.write(["npm", latestRevision]);
-  // Save versions of each package for later to handle version resolutions
-  // {name--range => {id: version requirement ID, name: name, range: range}}
-  const versionRequirements = new TrieMap();
-  // {name => list of versions}
-  const packageVersions = new TrieMap();
-  // {name--version => version ID}
-  const versionMap = new TrieMap();
-  // {set of all packages saved thus far}
-  const packages = new Trie();
-  // {set of all users saved thus far}
-  const users = new Trie();
-
-  // Helper function to avoid saving version requirements
-  // more than once. Returns the ID of the VR
-  const saveVersionRequirement = (name, range) => {
-    const cleanedName = "" + name;
-    const cleanedRange = "" + range;
-    const key = `${cleanedName}--${cleanedRange}`;
-    if (versionRequirements.has(key)) {
-      return versionRequirements.get(key).id;
-    } else {
-      const vrId = versionRequirementCounter.next();
-      const packageId = savePackage(cleanedName);
-      versionRequirements.set(key, {
-        id: vrId,
-        name: cleanedName,
-        range: cleanedRange,
-      });
-      versionRequirementCsv.write([vrId, cleanedRange.trim()]);
-      requirementOfCsv.write([vrId, packageId]);
-      return vrId;
-    }
-  };
-
-  const savePackage = (name) => {
-    const cleanedName = name.trim();
-    const id = getPackageId(cleanedName);
-    if (!packages.has(cleanedName)) {
-      packages.add(cleanedName);
-      packageCsv.write([id, cleanedName]);
-      inRegistryCsv.write([id, "npm"]);
-    }
-    return id;
-  };
-
+export const createObjects = () => {
   const saveUser = (username) => {
     const cleanedUsername = username.trim();
     const id = getUserId(cleanedUsername);
@@ -107,62 +22,11 @@ export const createObjects = (latestRevision) => {
     return id;
   };
 
-  const saveVersion = (
-    name,
-    packageId,
-    version,
-    timestamp,
-    repository,
-    dist
-  ) => {
-    // Only handles GitHub repos but these make up ~98% of
-    // npm packages, according to
-    // https://github.com/nice-registry/all-the-package-repos
-    let normalizedRepo;
-    let cleanedRepo;
-    try {
-        if (typeof repository === "string") {
-          normalizedRepo = gh(repository);
-        } else if (typeof repository === "object" && "url" in repository && !!repository["url"]) {
-          normalizedRepo = gh(repository["url"]);
-        }
-        if (!!normalizedRepo) {
-          cleanedRepo = normalizedRepo.https_url;
-        }
-    } catch {
-      console.error(`Failed to parse repo in ${name}`)
-    }
-
-    // Handle info about the unpacked tarball
-    let fileCount;
-    let unpackedSize;
-    if (!!dist) {
-      fileCount = dist.fileCount;
-      unpackedSize = dist.unpackedSize;
-    }
-
-    const id = versionCounter.next();
-    versionCsv.write([
-      id,
-      version.trim(),
-      timestamp,
-      cleanedRepo,
-      fileCount,
-      unpackedSize,
-    ]);
-    versionOfCsv.write([id, packageId]);
-
-    const key = getVersionId(name, version);
-    versionMap.set(key, id);
-    return id;
-  };
-
   const saveDependencies = (versionId, dependencies, type) => {
     Object.entries(dependencies)
       .filter(([depName, depRange]) => !!depName && !!depRange)
       .forEach(([depName, depRange]) => {
-        const requirementId = saveVersionRequirement(depName, depRange);
-        dependsOnCsv.write([versionId, type, requirementId]);
+        versionRequirements.add(depName, depRange, versionId, type);
       });
   };
 
@@ -196,7 +60,7 @@ export const createObjects = (latestRevision) => {
         totalRows = data["total_rows"];
       });
       fileStream.pipe(jsonStream).pipe(
-        map((doc, callback) => {
+        es.map(async (doc, callback) => {
           if (idx === 0) {
             bar.start(totalRows, 0);
           } else if (idx % 1000 === 0) {
@@ -205,19 +69,24 @@ export const createObjects = (latestRevision) => {
 
           // Save package
           const name = doc["_id"];
-          const repo = doc["repository"];
-          const packageId = savePackage(name, repo);
+          await savePackage(name);
 
           // Save its versions, their dependencies, and their maintainers
           const versions = doc["versions"];
           if (!versions) {
-            packageVersions.set(name, []);
             idx += 1;
             callback();
             return;
           }
           const times = doc["time"];
-          packageVersions.set(name, Object.keys(versions));
+          const packageTagsForVersion = Object.entries(doc["dist-tags"]).reduce(
+            (acc, entry) => {
+              const [tag, version] = entry;
+              acc[version] = tag;
+              return acc;
+            },
+            {}
+          );
 
           Object.entries(versions).forEach(([version, versionDetails]) => {
             if (typeof versionDetails != "object") {
@@ -231,16 +100,29 @@ export const createObjects = (latestRevision) => {
               timestamp = "";
             }
 
-            const versionId = saveVersion(
-              name,
-              packageId,
+            const versionObject: Version = {
               version,
               timestamp,
-              doc["repository"],
-              versionDetails["dist"]
-            );
+              repository: normalizeRepo(doc["repository"]),
+              fileCount: doc["dist"] && doc["dist"].fileCount,
+              unpackedSize: doc["dist"] && doc["dist"].unpackedSize,
+            };
+
+            const versionId = saveVersion(name, versionObject);
+
+            // Track version tags
+            const tag = packageTagsForVersion[version];
+            if (!!tag) {
+              // distTags.set(`${name}--${tag}`, versionId);
+            }
 
             // Save dependencies
+            const allDependencies = _.concat(
+              versionDetails["dependencies"],
+              versionDetails["devDependencies"],
+              versionDetails["peerDependencies"]
+            ).filter((d) => !!d);
+
             if (!!versionDetails["dependencies"]) {
               saveDependencies(
                 versionId,
@@ -281,8 +163,8 @@ export const createObjects = (latestRevision) => {
             .filter((v) => !!v)
             .uniq()
             .sort(semver.compare)
-            .value()
-          
+            .value();
+
           _.zip(sortedVersions, sortedVersions.slice(1)).forEach(
             ([vPrev, vNext]) => {
               if (
@@ -294,8 +176,8 @@ export const createObjects = (latestRevision) => {
               ) {
                 return;
               }
-              const idPrev = versionMap.get(getVersionId(name, vPrev.raw));
-              const idNext = versionMap.get(getVersionId(name, vNext.raw));
+              const idPrev = versionMap.get(getVersionKey(name, vPrev.raw));
+              const idNext = versionMap.get(getVersionKey(name, vNext.raw));
               const timestampPrev = Date.parse(times[vPrev.raw]);
               const timestampNext = Date.parse(times[vNext.raw]);
               const interval = timestampNext - timestampPrev;
@@ -317,7 +199,8 @@ export const createObjects = (latestRevision) => {
           versionRequirements,
           packageVersions,
           versionMap,
-          resolvesToCsv,
+          dependsOnCsv,
+          distTags,
           closeAllCsvs,
         });
       });
@@ -332,27 +215,43 @@ export const resolveVersions = (
   versionRequirements,
   packageVersions,
   versionMap,
-  resolvesToCsv,
+  dependsOnCsv,
+  distTags,
   closeAllCsvs
 ) => {
-  const total = versionRequirements.size;
+  const total = versionRequirements.size();
   let idx = 0;
   const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
   bar.start(total, 0);
-  for (let vr of versionRequirements) {
+
+  for (let vr of versionRequirements.trieMap.entries()) {
     if (idx % 10000 === 0) {
       bar.update(idx);
     }
-    const { id, name, range } = vr[1];
+    // name: the package being depended upon
+    // range: the version range specified in the dependency
+    // versionIds: a list of {versionId, type} objects, one for each
+    // version that depends on this package (and the dependency type;
+    // one of "normal", "peer", and "dev")
+    const { name, range, versionIds } = vr[1];
+
     const versions = packageVersions.get(name);
-    if (!versions || versions.length === 0 || !name || !id) {
+    if (!versions || versions.length === 0 || !name || !range) {
       idx += 1;
       continue;
     }
-    const resolvedVersion = resolveVersionRequirement(versions, range);
-    if (!!resolvedVersion) {
-      const versionId = versionMap.get(`${name.trim()}--${resolvedVersion}`);
-      resolvesToCsv.write([id, versionId]);
+
+    // Check dist tags for the version ID; otherwise try to resolve version range
+    let resolvedVersionId = distTags.get(`${name}--${range}`);
+    if (!resolvedVersionId) {
+      const resolvedVersion = resolveVersionRequirement(name, versions, range);
+      resolvedVersionId = versionMap.get(`${name.trim()}--${resolvedVersion}`);
+    }
+
+    if (!!resolvedVersionId) {
+      versionIds.forEach(([versionId, type]) => {
+        dependsOnCsv.write([versionId, type, range, resolvedVersionId]);
+      });
     }
     idx += 1;
   }
@@ -360,7 +259,7 @@ export const resolveVersions = (
   closeAllCsvs();
 };
 
-const resolveVersionRequirement = (versions, range) => {
+const resolveVersionRequirement = (name, versions, range) => {
   const matchingVersions = versions
     .filter((version) => semver.satisfies(version, range))
     .sort(semver.rcompare);
@@ -368,7 +267,9 @@ const resolveVersionRequirement = (versions, range) => {
   if (matchingVersions.length > 0) {
     return matchingVersions[0];
   } else {
-    // TODO: log ranges that don't resolve to anything
+    console.log(
+      `${name}: range "${range}" did not resolve to any of ${versions}`
+    );
     return;
   }
 };
