@@ -20,12 +20,10 @@ neo4j-admin import \
   --id-type=STRING \
   --multiline-fields=true \
   --nodes:Package=nodes/package.csv \
-  --nodes:Registry=nodes/registry.csv \
   --nodes:User=nodes/user.csv \
   --nodes:VersionRequirement=nodes/versionRequirement.csv \
   --nodes:Version=nodes/version.csv \
   --relationships:DEPENDS_ON=relationships/dependsOn.csv \
-  --relationships:IN_REGISTRY=relationships/inRegistry.csv \
   --relationships:MAINTAINS=relationships/maintains.csv \
   --relationships:REQUIREMENT_OF=relationships/requirementOf.csv \
   --relationships:RESOLVES_TO=relationships/resolvesTo.csv \
@@ -36,11 +34,7 @@ neo4j-admin import \
 
 There are five node types with the following properties:
 
-- Registry
-  - `id`. There's just one node of this type with id `npm`.
-  - `last_update_check`. This is equivalent to the current revision in npm's database. This makes it easy to get incremental updates to the graph (though this script does not handle this).
 - Package
-  - `id` (this is just the package name prefixed with `npm-`.)
   - `name`
 - Version
   - `version`
@@ -51,7 +45,6 @@ There are five node types with the following properties:
 - VersionRequirement
   - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User
-  - `id` (the username prefixed with `npm-`)
   - `username`
 
 And several relationships:
@@ -62,6 +55,5 @@ And several relationships:
 - `(VersionRequirement)--[REQUIREMENT_OF]-->(Package)`
 - `(VersionRequirement)--[RESOLVES_TO]-->(Version)`
 - `(User)--[MAINTAINS]-->(Version)`
-- `(Package)--[IN_REGISTRY]-->(Registry)`
 - `(Version)--[NEXT_VERSION]--(Version)`
   - `interval`: the duration (in milliseconds) between the two versions

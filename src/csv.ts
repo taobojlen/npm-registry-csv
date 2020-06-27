@@ -2,6 +2,18 @@ import fsm from "fs-minipass";
 import fs from "fs";
 import stringify from "csv-stringify";
 
+export let packageCsv: stringify.Stringifier,
+  versionCsv: stringify.Stringifier,
+  versionRequirementCsv: stringify.Stringifier,
+  userCsv: stringify.Stringifier,
+  versionOfCsv: stringify.Stringifier,
+  dependsOnCsv: stringify.Stringifier,
+  requirementOfCsv: stringify.Stringifier,
+  resolvesToCsv: stringify.Stringifier,
+  maintainsCsv: stringify.Stringifier,
+  nextVersionCsv: stringify.Stringifier,
+  closeAllCsvs: () => void;
+
 const createStringifier = (writeStream, columns) => {
   const stringifier = stringify({ columns: columns, header: true });
   stringifier.pipe(writeStream);
@@ -14,7 +26,6 @@ const createWriteStream = (path) => {
 
 export const createCsvs = () => {
   // Nodes
-  const registryPath = "./data/nodes/registry.csv";
   const packagePath = "./data/nodes/package.csv";
   const versionPath = "./data/nodes/version.csv";
   const versionRequirementPath = "./data/nodes/versionRequirement.csv";
@@ -25,11 +36,9 @@ export const createCsvs = () => {
   const requirementOfPath = "./data/relationships/requirementOf.csv";
   const resolvesToPath = "./data/relationships/resolvesTo.csv";
   const maintainsPath = "./data/relationships/maintains.csv";
-  const inRegistryPath = "./data/relationships/inRegistry.csv";
   const nextVersionPath = "./data/relationships/nextVersion.csv";
 
   const paths = [
-    registryPath,
     packagePath,
     versionPath,
     versionRequirementPath,
@@ -39,7 +48,6 @@ export const createCsvs = () => {
     requirementOfPath,
     resolvesToPath,
     maintainsPath,
-    inRegistryPath,
     nextVersionPath,
   ];
   paths.forEach((path) => {
@@ -49,7 +57,6 @@ export const createCsvs = () => {
   });
 
   // Create file writers (nodes)
-  const registryWriter = createWriteStream(registryPath);
   const packageWriter = createWriteStream(packagePath);
   const versionWriter = createWriteStream(versionPath);
   const versionRequirementWriter = createWriteStream(versionRequirementPath);
@@ -60,66 +67,53 @@ export const createCsvs = () => {
   const requirementOfWriter = createWriteStream(requirementOfPath);
   const resolvesToWriter = createWriteStream(resolvesToPath);
   const maintainsWriter = createWriteStream(maintainsPath);
-  const inRegistryWriter = createWriteStream(inRegistryPath);
   const nextVersionWriter = createWriteStream(nextVersionPath);
 
   // Create stringifiers (nodes)
-  const registryCsv = createStringifier(registryWriter, [
-    "id:ID(Registry)",
-    "last_update_check",
-  ]);
-  const packageCsv = createStringifier(packageWriter, [
-    "id:ID(Package)",
-    "name",
-  ]);
-  const versionCsv = createStringifier(versionWriter, [
+  packageCsv = createStringifier(packageWriter, ["name:ID(Package)"]);
+  versionCsv = createStringifier(versionWriter, [
     "id:ID(Version)",
     "version",
     "timestamp:datetime",
     "repository",
     "file_count",
-    "unpacked_size"
+    "unpacked_size",
   ]);
-  const versionRequirementCsv = createStringifier(versionRequirementWriter, [
+  versionRequirementCsv = createStringifier(versionRequirementWriter, [
     "id:ID(VersionRequirement)",
     "requirement",
   ]);
-  const userCsv = createStringifier(userWriter, ["id:ID(User)", "username"]);
+  userCsv = createStringifier(userWriter, ["username:ID(User)"]);
   // Create stringifiers (relationships)
-  const versionOfCsv = createStringifier(versionOfWriter, [
+  versionOfCsv = createStringifier(versionOfWriter, [
     ":START_ID(Version)",
     ":END_ID(Package)",
   ]);
-  const dependsOnCsv = createStringifier(dependsOnWriter, [
+  dependsOnCsv = createStringifier(dependsOnWriter, [
     ":START_ID(Version)",
     "type",
     ":END_ID(VersionRequirement)",
   ]);
-  const requirementOfCsv = createStringifier(requirementOfWriter, [
+  requirementOfCsv = createStringifier(requirementOfWriter, [
     ":START_ID(VersionRequirement)",
     ":END_ID(Package)",
   ]);
-  const resolvesToCsv = createStringifier(resolvesToWriter, [
+  resolvesToCsv = createStringifier(resolvesToWriter, [
     ":START_ID(VersionRequirement)",
     ":END_ID(Version)",
   ]);
-  const maintainsCsv = createStringifier(maintainsWriter, [
+  maintainsCsv = createStringifier(maintainsWriter, [
     ":START_ID(User)",
     ":END_ID(Version)",
   ]);
-  const inRegistryCsv = createStringifier(inRegistryWriter, [
-    ":START_ID(Package)",
-    ":END_ID(Registry)",
-  ]);
-  const nextVersionCsv = createStringifier(nextVersionWriter, [
+  nextVersionCsv = createStringifier(nextVersionWriter, [
     ":START_ID(Version)",
     "interval",
     ":END_ID(Version)",
   ]);
 
-  const closeAllCsvs = () => {
+  closeAllCsvs = () => {
     const writers = [
-      registryWriter,
       packageWriter,
       versionOfWriter,
       versionRequirementWriter,
@@ -129,27 +123,10 @@ export const createCsvs = () => {
       requirementOfWriter,
       resolvesToWriter,
       maintainsWriter,
-      inRegistryWriter,
       nextVersionWriter,
     ];
     writers.forEach((w) => {
       w.end();
     });
-  };
-
-  return {
-    registryCsv,
-    packageCsv,
-    versionCsv,
-    versionRequirementCsv,
-    userCsv,
-    versionOfCsv,
-    dependsOnCsv,
-    requirementOfCsv,
-    resolvesToCsv,
-    maintainsCsv,
-    inRegistryCsv,
-    nextVersionCsv,
-    closeAllCsvs,
   };
 };
