@@ -6,6 +6,7 @@ import cliProgress from "cli-progress";
 import { swapKeysAndValues } from "./util";
 import {savePackage, saveVersion, saveDependencies, saveMaintainer, saveNextVersions} from "./save"
 import { packageVersions } from "./inMemoryData";
+import { Maintainer } from "./types";
 
 export const createObjects = () => {
   let idx = 0;
@@ -70,21 +71,24 @@ export const createObjects = () => {
             // Save dependencies
             if (!!versionDetails["dependencies"]) {
               saveDependencies(
-                versionId,
+                name,
+                version,
                 versionDetails["dependencies"],
                 "normal"
               );
             }
             if (!!versionDetails["devDependencies"]) {
               saveDependencies(
-                versionId,
+                name,
+                version,
                 versionDetails["devDependencies"],
                 "dev"
               );
             }
             if (!!versionDetails["peerDependencies"]) {
               saveDependencies(
-                versionId,
+                name,
+                version,
                 versionDetails["peerDependencies"],
                 "peer"
               );
@@ -92,14 +96,17 @@ export const createObjects = () => {
 
             // Save maintainers
             const maintainers = versionDetails["maintainers"];
-            if (!!maintainers && Array.isArray(maintainers)) {
+            if (!!maintainers && typeof maintainers === "string") {
+              // TODO: handle username of the format "username <email@domain.com>"
+              saveMaintainer(versionId, maintainers)
+            } else if (!!maintainers && Array.isArray(maintainers)) {
               maintainers.forEach((m) => saveMaintainer(versionId, m));
             } else if (!!maintainers) {
-              // TODO
-              console.error(maintainers )
-              // Object.entries(maintainers).forEach((m) =>
-              //   saveMaintainer(versionId, m)
-              // );
+              // Sometimes maintainers is an object with 0,1,... as keys
+              // and {username, email} as objects
+              Object.values(maintainers).forEach((m: Maintainer) =>
+                saveMaintainer(versionId, m)
+              );
             }
           });
 

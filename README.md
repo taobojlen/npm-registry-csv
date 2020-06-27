@@ -8,7 +8,7 @@ and store it as .csv files for easy import into e.g. Neo4j.
 The script downloads a large JSON file from npm (~45GB as of 2020-06-18) and parses it.
 As far as I can tell, npm throttles the download, so the first requirements are (a) time and (b) ample disk space.
 
-The data is processed using streams, but it does need to save a lot of information in memory. With the 45GB JSON file it uses just above 10GB of RAM.
+The data is processed using streams, but it does need to save a lot of information in memory. With the 45GB JSON file it uses about 6GB of RAM.
 
 # Running and importing
 
@@ -27,12 +27,13 @@ neo4j-admin import \
   --relationships:MAINTAINS=relationships/maintains.csv \
   --relationships:REQUIREMENT_OF=relationships/requirementOf.csv \
   --relationships:RESOLVES_TO=relationships/resolvesTo.csv \
-  --relationships:VERSION_OF=relationships/versionOf.csv
+  --relationships:VERSION_OF=relationships/versionOf.csv \
+  --relationships:DEPENDS_ON_RESOLVES_TO=relationships/dependsOnResolvesTo.csv
 ```
 
 # Data modeling
 
-There are five node types with the following properties:
+There are four node types with the following properties:
 
 - Package
   - `name`
@@ -54,6 +55,8 @@ And several relationships:
   - `type`: one of `normal`, `dev`, `peer`
 - `(VersionRequirement)--[REQUIREMENT_OF]-->(Package)`
 - `(VersionRequirement)--[RESOLVES_TO]-->(Version)`
+- `(Version)--[DEPENDS_ON_RESOLVES_TO]-->(Version)`
+  - This is the result of following a `DEPENDS_ON`, then a `RESOLVES_TO` relationship. This direct relationship between versions is added for convenience.
 - `(User)--[MAINTAINS]-->(Version)`
-- `(Version)--[NEXT_VERSION]--(Version)`
+- `(Version)--[NEXT_VERSION]-->(Version)`
   - `interval`: the duration (in milliseconds) between the two versions

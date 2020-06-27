@@ -2,10 +2,16 @@ export interface StringMap {
   [key: string]: string;
 }
 
+export interface Dependent {
+  name: string;
+  version: string;
+}
+
 export interface VersionRequirement {
   id: number;
-  name: string;
+  package: string;
   range: string;
+  dependents: Dependent[];
 }
 
 export type DependencyType = "normal" | "peer" | "dev"

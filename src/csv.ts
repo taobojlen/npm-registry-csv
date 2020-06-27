@@ -12,6 +12,7 @@ export let packageCsv: stringify.Stringifier,
   resolvesToCsv: stringify.Stringifier,
   maintainsCsv: stringify.Stringifier,
   nextVersionCsv: stringify.Stringifier,
+  dependsOnResolvesToCsv: stringify.Stringifier,
   closeAllCsvs: () => void;
 
 const createStringifier = (writeStream, columns) => {
@@ -37,6 +38,7 @@ export const createCsvs = () => {
   const resolvesToPath = "./data/relationships/resolvesTo.csv";
   const maintainsPath = "./data/relationships/maintains.csv";
   const nextVersionPath = "./data/relationships/nextVersion.csv";
+  const dependsOnResolvesToPath = "./data/relationships/dependsOnResolvesTo.csv";
 
   const paths = [
     packagePath,
@@ -49,6 +51,7 @@ export const createCsvs = () => {
     resolvesToPath,
     maintainsPath,
     nextVersionPath,
+    dependsOnResolvesToPath
   ];
   paths.forEach((path) => {
     if (fs.existsSync(path)) {
@@ -68,6 +71,7 @@ export const createCsvs = () => {
   const resolvesToWriter = createWriteStream(resolvesToPath);
   const maintainsWriter = createWriteStream(maintainsPath);
   const nextVersionWriter = createWriteStream(nextVersionPath);
+  const dependsOnResolvesToWriter = createWriteStream(dependsOnResolvesToPath);
 
   // Create stringifiers (nodes)
   packageCsv = createStringifier(packageWriter, ["name:ID(Package)"]);
@@ -111,6 +115,10 @@ export const createCsvs = () => {
     "interval",
     ":END_ID(Version)",
   ]);
+  dependsOnResolvesToCsv = createStringifier(dependsOnResolvesToWriter, [
+    ":START_ID(Version)",
+    ":END_ID(Version)"
+  ])
 
   closeAllCsvs = () => {
     const writers = [
@@ -124,6 +132,7 @@ export const createCsvs = () => {
       resolvesToWriter,
       maintainsWriter,
       nextVersionWriter,
+      dependsOnResolvesToWriter
     ];
     writers.forEach((w) => {
       w.end();

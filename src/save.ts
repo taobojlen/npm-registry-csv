@@ -11,8 +11,9 @@ import {
   maintainsCsv,
   nextVersionCsv,
   resolvesToCsv,
+  dependsOnResolvesToCsv,
 } from "./csv";
-import { StringMap, DependencyType, Maintainer } from "./types";
+import { StringMap, DependencyType, Maintainer, Dependent } from "./types";
 import {
   versionRequirements,
   packages,
@@ -26,7 +27,12 @@ const versionRequirementCounter = new Counter();
 
 // Helper function to avoid saving version requirements
 // more than once. Returns the ID of the VR
-export const saveVersionRequirement = (name: string, range: string) => {
+export const saveVersionRequirement = (
+  name: string,
+  range: string,
+  dependentName: string,
+  dependentVersion: string
+) => {
   const cleanedName = "" + name;
   const cleanedRange = "" + range;
   const key = `${cleanedName}--${cleanedRange}`;
@@ -35,11 +41,14 @@ export const saveVersionRequirement = (name: string, range: string) => {
   } else {
     const vrId = versionRequirementCounter.next();
     const packageId = savePackage(cleanedName);
-    versionRequirements.set(key, {
-      id: vrId,
-      name: cleanedName,
-      range: cleanedRange,
-    });
+    versionRequirements.set(
+      key,
+      vrId,
+      cleanedName,
+      cleanedRange,
+      dependentName,
+      dependentVersion
+    );
     versionRequirementCsv.write([vrId, cleanedRange.trim()]);
     requirementOfCsv.write([vrId, packageId]);
     return vrId;
@@ -117,14 +126,21 @@ export const saveVersion = (
 };
 
 export const saveDependencies = (
-  versionId: string,
+  name: string,
+  version: string,
   dependencies: StringMap,
   type: DependencyType
 ) => {
+  const versionId = getVersionId(name, version);
   Object.entries(dependencies)
     .filter(([depName, depRange]) => !!depName && !!depRange)
     .forEach(([depName, depRange]) => {
-      const requirementId = saveVersionRequirement(depName, depRange);
+      const requirementId = saveVersionRequirement(
+        depName,
+        depRange,
+        name,
+        version
+      );
       dependsOnCsv.write([versionId, type, requirementId]);
     });
 };
@@ -140,11 +156,17 @@ export const saveMaintainer = (versionId: string, maintainer: Maintainer) => {
   } else {
     return;
   }
-  const userId = saveUser(username);
-  maintainsCsv.write([userId, versionId]);
+  if (!!username) {
+    const userId = saveUser(username);
+    maintainsCsv.write([userId, versionId]);
+  }
 };
 
-export const saveNextVersions = (name: string, versions: string[], times: StringMap) => {
+export const saveNextVersions = (
+  name: string,
+  versions: string[],
+  times: StringMap
+) => {
   let sortedVersions = chain(Object.keys(versions))
     .map((v) => semver.parse(v))
     .filter((v) => !!v)
@@ -168,7 +190,12 @@ export const saveNextVersions = (name: string, versions: string[], times: String
   });
 };
 
-export const saveResolvesTo = (vrId: number, name: string, range: string) => {
+export const saveResolvesTo = (
+  vrId: number,
+  name: string,
+  range: string,
+  dependents: Dependent[]
+) => {
   const versions = packageVersions.get(name);
   if (!versions || versions.length === 0 || !name || !vrId) {
     return;
@@ -177,5 +204,9 @@ export const saveResolvesTo = (vrId: number, name: string, range: string) => {
   if (!!resolvedVersion) {
     const versionId = getVersionId(name, resolvedVersion);
     resolvesToCsv.write([vrId, versionId]);
+    dependents.forEach(({ name: dependentName, version: dependentVersion }) => {
+      const dependentId = getVersionId(dependentName, dependentVersion);
+      dependsOnResolvesToCsv.write([dependentId, versionId]);
+    });
   }
 };

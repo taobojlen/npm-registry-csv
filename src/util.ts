@@ -2,6 +2,9 @@ import { StringMap } from "./types";
 import semver from "semver";
 
 export const swapKeysAndValues = (map: StringMap) => {
+  if (!map) {
+    return {}
+  }
   return Object.entries(map).reduce((acc, entry) => {
     const [key, value] = entry;
     acc[value] = key;
