@@ -23,6 +23,7 @@
     "github-url-to-object": "^4.0.4",
     "lodash": "^4.17.15",
     "minipass-json-stream": "^1.0.1",
+    "neo4j-driver": "^4.1.0",
     "pretty-bytes": "^5.3.0",
     "semver": "^7.3.2"
   },

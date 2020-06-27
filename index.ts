@@ -1,7 +1,8 @@
-import { getCurrentRevision, getAllDocs } from "./src/download.js";
-import { createObjects, resolveVersions } from "./src/parse.js";
+import { getCurrentRevision, getAllDocs } from "./src/download";
+import { createObjects, resolveVersions } from "./src/parse";
 import fs from "fs";
-import { ALL_DOCS_DEST } from "./src/constants.js";
+import { ALL_DOCS_DEST } from "./src/constants";
+import { setupDatabase } from "./src/database";
 
 const main = async () => {
   let latestRevision;
@@ -16,24 +17,12 @@ const main = async () => {
       console.log("Downloading npm data");
       await getAllDocs();
     }
+    console.log("Setting up db");
+    await setupDatabase();
     console.log("Extracting objects from JSON");
-    const {
-      versionRequirements,
-      packageVersions,
-      versionMap,
-      dependsOnCsv,
-      distTags,
-      closeAllCsvs,
-    } = await createObjects(latestRevision);
+    await createObjects();
     console.log("Resolving version ranges");
-    resolveVersions(
-      versionRequirements,
-      packageVersions,
-      versionMap,
-      dependsOnCsv,
-      distTags,
-      closeAllCsvs
-    );
+    resolveVersions();
     console.log("Done! View .csvs in the data/ directory.");
     return;
   } catch (e) {

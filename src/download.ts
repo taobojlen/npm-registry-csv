@@ -1,7 +1,7 @@
 import fs from "fs";
 import axios from "axios";
 import prettyBytes from "pretty-bytes";
-import { ALL_DOCS_DEST } from "./constants.js";
+import { ALL_DOCS_DEST } from "./constants";
 
 export const getCurrentRevision = async () => {
   const endpoint =
