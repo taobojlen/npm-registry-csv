@@ -33,24 +33,29 @@ export const saveVersionRequirement = (
   dependentName: string,
   dependentVersion: string
 ) => {
-  const cleanedName = "" + name;
-  const cleanedRange = "" + range;
+  if (!name || !range) {
+    console.error(`No name/range (${name}/${range})`);
+  }
+  const cleanedName = ("" + name).trim();
+  const cleanedRange = ("" + range).trim();
   const key = `${cleanedName}--${cleanedRange}`;
   if (versionRequirements.has(key)) {
     return versionRequirements.get(key).id;
   } else {
     const vrId = versionRequirementCounter.next();
     const packageId = savePackage(cleanedName);
-    versionRequirements.set(
-      key,
-      vrId,
-      cleanedName,
-      cleanedRange,
-      dependentName,
-      dependentVersion
-    );
-    versionRequirementCsv.write([vrId, cleanedRange.trim()]);
-    requirementOfCsv.write([vrId, packageId]);
+    if (!!vrId && !!packageId) {
+      versionRequirements.set(
+        key,
+        vrId,
+        cleanedName,
+        cleanedRange,
+        dependentName,
+        dependentVersion
+      );
+      versionRequirementCsv.write([vrId, cleanedRange]);
+      requirementOfCsv.write([vrId, packageId]);
+    }
     return vrId;
   }
 };
