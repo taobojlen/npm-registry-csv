@@ -19,6 +19,7 @@ import {
   packages,
   users,
   packageVersions,
+  packageTags,
 } from "./inMemoryData";
 import { chain, zip } from "lodash";
 import semver from "semver";
@@ -205,7 +206,15 @@ export const saveResolvesTo = (
   if (!versions || versions.length === 0 || !name || !vrId) {
     return;
   }
-  const resolvedVersion = resolveVersionRequirement(versions, range);
+  const tags = packageTags.get(name)
+  let resolvedVersion: string;
+  if (range in tags) {
+    // e.g. if the range is "latest" or "alpha"
+    resolvedVersion = tags[range]
+  } else {
+    resolvedVersion = resolveVersionRequirement(versions, range);
+  }
+
   if (!!resolvedVersion) {
     const versionId = getVersionId(name, resolvedVersion);
     resolvesToCsv.write([vrId, versionId]);

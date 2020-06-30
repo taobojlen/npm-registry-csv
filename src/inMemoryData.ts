@@ -1,5 +1,5 @@
 import TrieMap from "mnemonist/trie-map";
-import { VersionRequirement } from "./types";
+import { VersionRequirement, StringMap } from "./types";
 import Trie from "mnemonist/trie";
 
 class DefaultTrieMap {
@@ -32,6 +32,8 @@ class DefaultTrieMap {
 export const versionRequirements = new DefaultTrieMap();
 // {name => list of versions}
 export const packageVersions = new TrieMap<string, string[]>();
+// {name => {tag: version}}
+export const packageTags = new TrieMap<string, StringMap>()
 // {set of all packages saved thus far}
 export const packages = new Trie<string>();
 // {set of all users saved thus far}

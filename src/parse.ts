@@ -5,7 +5,7 @@ import * as es from "event-stream";
 import cliProgress from "cli-progress";
 import { swapKeysAndValues } from "./util";
 import {savePackage, saveVersion, saveDependencies, saveMaintainer, saveNextVersions} from "./save"
-import { packageVersions } from "./inMemoryData";
+import { packageVersions, packageTags } from "./inMemoryData";
 import { Maintainer } from "./types";
 
 export const createObjects = () => {
@@ -33,7 +33,6 @@ export const createObjects = () => {
 
           // Save package
           const name = doc["_id"];
-          const packageTagsForVersion = swapKeysAndValues(doc["dist-tags"]);
           const packageId = savePackage(name);
 
           // Save its versions, their dependencies, and their maintainers
@@ -46,6 +45,12 @@ export const createObjects = () => {
           }
           const times = doc["time"];
           packageVersions.set(name, Object.keys(versions));
+
+          // Save version tags to be used in version resolution
+          const packageVersionTags = doc["dist-tags"]; // {tag => version}
+          if (!!packageVersionTags) {
+            packageTags.set(name, packageVersionTags)
+          }
 
           Object.entries(versions).forEach(([version, versionDetails]) => {
             if (typeof versionDetails != "object") {
