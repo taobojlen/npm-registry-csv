@@ -12,7 +12,7 @@ The data is processed using streams, but it does need to save a lot of informati
 
 # Running and importing
 
-To run the script, use `node --max-old-space-size=16384 index.js`.
+To run the script, use `node -r ts-node/register --max-old-space-size=16000 index.ts`.
 
 To import into Neo4j, make sure that there isn't an existing database already. Then, from the `data/` directory, run
 ```

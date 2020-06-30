@@ -3,7 +3,6 @@ import { ALL_DOCS_DEST } from "./constants";
 import JSONStream from "minipass-json-stream";
 import * as es from "event-stream";
 import cliProgress from "cli-progress";
-import { swapKeysAndValues } from "./util";
 import {savePackage, saveVersion, saveDependencies, saveMaintainer, saveNextVersions} from "./save"
 import { packageVersions, packageTags } from "./inMemoryData";
 import { Maintainer } from "./types";
@@ -70,7 +69,8 @@ export const createObjects = () => {
               version,
               timestamp,
               doc["repository"],
-              versionDetails["dist"]
+              versionDetails["dist"],
+              versionDetails["scripts"]
             );
 
             // Save dependencies

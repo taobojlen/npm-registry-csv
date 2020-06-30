@@ -23,6 +23,10 @@ import {
 } from "./inMemoryData";
 import { chain, zip } from "lodash";
 import semver from "semver";
+import {
+  SUSPICIOUS_INSTALL_SCRIPTS,
+  SUSPICIOUS_UNINSTALL_SCRIPTS,
+} from "./constants";
 
 const versionRequirementCounter = new Counter();
 
@@ -85,7 +89,8 @@ export const saveVersion = (
   version: string,
   timestamp: string,
   repository: string,
-  dist: any
+  dist: any,
+  scripts: StringMap
 ) => {
   // Only handles GitHub repos but these make up ~98% of
   // npm packages, according to
@@ -117,6 +122,20 @@ export const saveVersion = (
     unpackedSize = dist.unpackedSize;
   }
 
+  // Look for install scripts
+  let installScript: string;
+  let uninstallScript: string;
+  if (!!scripts) {
+    installScript = Object.entries(scripts)
+      .filter(([hook, _script]) => SUSPICIOUS_INSTALL_SCRIPTS.includes(hook))
+      .map(([_hook, script]) => script)
+      .join("; ")
+    uninstallScript = Object.entries(scripts)
+      .filter(([hook, _script]) => SUSPICIOUS_UNINSTALL_SCRIPTS.includes(hook))
+      .map(([_hook, script]) => script)
+      .join("; ")
+  }
+
   const id = getVersionId(name, version);
   versionCsv.write([
     id,
@@ -125,6 +144,8 @@ export const saveVersion = (
     cleanedRepo,
     fileCount,
     unpackedSize,
+    installScript,
+    uninstallScript
   ]);
   versionOfCsv.write([id, packageId]);
 
@@ -206,11 +227,11 @@ export const saveResolvesTo = (
   if (!versions || versions.length === 0 || !name || !vrId) {
     return;
   }
-  const tags = packageTags.get(name)
+  const tags = packageTags.get(name);
   let resolvedVersion: string;
   if (range in tags) {
     // e.g. if the range is "latest" or "alpha"
-    resolvedVersion = tags[range]
+    resolvedVersion = tags[range];
   } else {
     resolvedVersion = resolveVersionRequirement(versions, range);
   }
