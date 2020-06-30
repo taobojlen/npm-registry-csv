@@ -94,7 +94,7 @@ export const createCsvs = () => {
     "id:ID(VersionRequirement)",
     "requirement",
   ]);
-  userCsv = createStringifier(userWriter, ["username:ID(User)"]);
+  userCsv = createStringifier(userWriter, ["username:ID(User)", "email"]);
   // Create stringifiers (relationships)
   versionOfCsv = createStringifier(versionOfWriter, [
     ":START_ID(Version)",

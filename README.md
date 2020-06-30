@@ -48,6 +48,7 @@ There are four node types with the following properties:
   - `requirement` (e.g. `^2.0.0` or `>=5.0.1`)
 - User
   - `username`
+  - `email`
 
 And several relationships:
 

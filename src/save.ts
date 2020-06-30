@@ -99,11 +99,11 @@ export const savePackageDependencies = (
   });
 };
 
-export const saveUser = (username: string) => {
+export const saveUser = (username: string, email?: string) => {
   const cleanedUsername = username.trim();
   if (!users.has(cleanedUsername)) {
     users.add(cleanedUsername);
-    userCsv.write([cleanedUsername]);
+    userCsv.write([cleanedUsername, email]);
   }
   return cleanedUsername;
 };
@@ -201,15 +201,17 @@ export const saveMaintainer = (versionId: string, maintainer: Maintainer) => {
   // Sometimes each maintainer is a {name: "...", email: "..."} object,
   // other times it's just a string.
   let username: string;
+  let email: string;
   if (typeof maintainer === "object" && "name" in maintainer) {
     username = maintainer["name"];
+    email = maintainer["email"];
   } else if (typeof maintainer === "string") {
     username = maintainer;
   } else {
     return;
   }
   if (!!username) {
-    const userId = saveUser(username);
+    const userId = saveUser(username, email);
     maintainsCsv.write([userId, versionId]);
   }
 };
