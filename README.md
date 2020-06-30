@@ -29,6 +29,7 @@ neo4j-admin import \
   --relationships:RESOLVES_TO=relationships/resolvesTo.csv \
   --relationships:VERSION_OF=relationships/versionOf.csv \
   --relationships:DEPENDS_ON_RESOLVES_TO=relationships/dependsOnResolvesTo.csv
+  --relationships:PACKAGE_DEPENDS_ON=relationships/packageDependsOn.csv
 ```
 
 # Data modeling
@@ -60,3 +61,6 @@ And several relationships:
 - `(User)--[MAINTAINS]-->(Version)`
 - `(Version)--[NEXT_VERSION]-->(Version)`
   - `interval`: the duration (in milliseconds) between the two versions
+- `(Package)--[DEPENDS_ON]-->(Package)
+  - `type`: `normal`, `dev`, or `peer`
+  - Helper relationship -- created if latest release version of package 1 depends on any version of package 2

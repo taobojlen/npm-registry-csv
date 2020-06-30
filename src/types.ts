@@ -15,5 +15,9 @@ export interface VersionRequirement {
 }
 
 export type DependencyType = "normal" | "peer" | "dev"
+export interface Dependency {
+  name: string;
+  type: DependencyType;
+}
 
 export type Maintainer = string | {name: string, email: string}

@@ -1,5 +1,6 @@
 import { Counter, getVersionId, resolveVersionRequirement } from "./util";
 import gh from "github-url-to-object";
+import validator from "validator";
 import {
   versionRequirementCsv,
   requirementOfCsv,
@@ -12,8 +13,15 @@ import {
   nextVersionCsv,
   resolvesToCsv,
   dependsOnResolvesToCsv,
+  packageDependsOnCsv,
 } from "./csv";
-import { StringMap, DependencyType, Maintainer, Dependent } from "./types";
+import {
+  StringMap,
+  DependencyType,
+  Maintainer,
+  Dependent,
+  Dependency,
+} from "./types";
 import {
   versionRequirements,
   packages,
@@ -74,6 +82,23 @@ export const savePackage = (name: string) => {
   return cleanedName;
 };
 
+export const savePackageDependencies = (
+  name: string,
+  dependencies: Dependency[]
+) => {
+  const cleanedName = ("" + name).trim();
+  dependencies.forEach(({ name: dependencyName, type }) => {
+    const cleanedDepName = ("" + dependencyName).trim();
+    if (
+      validator.isURL(cleanedDepName) ||
+      cleanedDepName.startsWith("file://")
+    ) {
+      return;
+    }
+    packageDependsOnCsv.write([cleanedName, type, cleanedDepName]);
+  });
+};
+
 export const saveUser = (username: string) => {
   const cleanedUsername = username.trim();
   if (!users.has(cleanedUsername)) {
@@ -129,11 +154,11 @@ export const saveVersion = (
     installScript = Object.entries(scripts)
       .filter(([hook, _script]) => SUSPICIOUS_INSTALL_SCRIPTS.includes(hook))
       .map(([_hook, script]) => script)
-      .join("; ")
+      .join("; ");
     uninstallScript = Object.entries(scripts)
       .filter(([hook, _script]) => SUSPICIOUS_UNINSTALL_SCRIPTS.includes(hook))
       .map(([_hook, script]) => script)
-      .join("; ")
+      .join("; ");
   }
 
   const id = getVersionId(name, version);
@@ -145,7 +170,7 @@ export const saveVersion = (
     fileCount,
     unpackedSize,
     installScript,
-    uninstallScript
+    uninstallScript,
   ]);
   versionOfCsv.write([id, packageId]);
 
@@ -191,7 +216,7 @@ export const saveMaintainer = (versionId: string, maintainer: Maintainer) => {
 
 export const saveNextVersions = (
   name: string,
-  versions: string[],
+  versions: StringMap,
   times: StringMap
 ) => {
   let sortedVersions = chain(Object.keys(versions))

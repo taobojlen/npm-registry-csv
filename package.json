@@ -26,7 +26,8 @@
     "minipass-json-stream": "^1.0.1",
     "mnemonist": "^0.37.0",
     "pretty-bytes": "^5.3.0",
-    "semver": "^7.3.2"
+    "semver": "^7.3.2",
+    "validator": "^13.1.1"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.7.0",
@@ -35,6 +36,7 @@
     "@types/lodash": "^4.14.157",
     "@types/node": "^14.0.14",
     "@types/semver": "^7.3.1",
+    "@types/validator": "^13.1.0",
     "prettier": "^2.0.5",
     "ts-node": "^8.10.2",
     "typescript": "^3.9.5"

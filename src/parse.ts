@@ -2,10 +2,18 @@ import fs from "fs-minipass";
 import { ALL_DOCS_DEST } from "./constants";
 import JSONStream from "minipass-json-stream";
 import * as es from "event-stream";
+import semver from "semver"
 import cliProgress from "cli-progress";
-import {savePackage, saveVersion, saveDependencies, saveMaintainer, saveNextVersions} from "./save"
+import {
+  savePackage,
+  saveVersion,
+  saveDependencies,
+  saveMaintainer,
+  saveNextVersions,
+  savePackageDependencies,
+} from "./save";
 import { packageVersions, packageTags } from "./inMemoryData";
-import { Maintainer } from "./types";
+import { Maintainer, Dependency } from "./types";
 
 export const createObjects = () => {
   let idx = 0;
@@ -48,9 +56,11 @@ export const createObjects = () => {
           // Save version tags to be used in version resolution
           const packageVersionTags = doc["dist-tags"]; // {tag => version}
           if (!!packageVersionTags) {
-            packageTags.set(name, packageVersionTags)
+            packageTags.set(name, packageVersionTags);
           }
 
+          const latestVersion = semver.maxSatisfying(Object.keys(versions), "*")
+          const allDeps: Dependency[] = [];
           Object.entries(versions).forEach(([version, versionDetails]) => {
             if (typeof versionDetails != "object") {
               return;
@@ -81,6 +91,13 @@ export const createObjects = () => {
                 versionDetails["dependencies"],
                 "normal"
               );
+              if (version === latestVersion) {
+                Object.keys(versionDetails["dependencies"]).forEach(
+                  (dependencyName) => {
+                    allDeps.push({ name: dependencyName, type: "normal" });
+                  }
+                );
+              }
             }
             if (!!versionDetails["devDependencies"]) {
               saveDependencies(
@@ -89,6 +106,13 @@ export const createObjects = () => {
                 versionDetails["devDependencies"],
                 "dev"
               );
+              if (version === latestVersion) {
+                Object.keys(versionDetails["devDependencies"]).forEach(
+                  (dependencyName) => {
+                    allDeps.push({ name: dependencyName, type: "dev" });
+                  }
+                );
+              }
             }
             if (!!versionDetails["peerDependencies"]) {
               saveDependencies(
@@ -97,13 +121,20 @@ export const createObjects = () => {
                 versionDetails["peerDependencies"],
                 "peer"
               );
+              if (version === latestVersion) {
+                Object.keys(versionDetails["peerDependencies"]).forEach(
+                  (dependencyName) => {
+                    allDeps.push({ name: dependencyName, type: "peer" });
+                  }
+                );
+              }
             }
 
             // Save maintainers
             const maintainers = versionDetails["maintainers"];
             if (!!maintainers && typeof maintainers === "string") {
               // TODO: handle username of the format "username <email@domain.com>"
-              saveMaintainer(versionId, maintainers)
+              saveMaintainer(versionId, maintainers);
             } else if (!!maintainers && Array.isArray(maintainers)) {
               maintainers.forEach((m) => saveMaintainer(versionId, m));
             } else if (!!maintainers) {
@@ -116,6 +147,7 @@ export const createObjects = () => {
           });
 
           saveNextVersions(name, versions, times);
+          savePackageDependencies(name, allDeps);
 
           // Now our versions are saved, add NEXT_VERSION relationships between
           // successive ones
