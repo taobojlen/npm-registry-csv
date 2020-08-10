@@ -237,9 +237,14 @@ export const saveNextVersions = (
     const idNext = getVersionId(name, vNext);
     const timestampPrev = Date.parse(times[vPrev] || "");
     const timestampNext = Date.parse(times[vNext] || "");
-    const interval = timestampNext - timestampPrev;
+    let interval: number;
+    try {
+      interval = Math.floor((timestampNext - timestampPrev) / 1000);
+    } catch {
+      // noop
+    }
     if (!!interval && !isNaN(interval)) {
-      nextVersionCsv.write([idPrev, interval, idNext]);
+      nextVersionCsv.write([idPrev, `PT${interval}S`, idNext]);
     }
   });
 };

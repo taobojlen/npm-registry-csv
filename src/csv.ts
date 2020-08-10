@@ -83,10 +83,10 @@ export const createCsvs = () => {
   versionCsv = createStringifier(versionWriter, [
     "id:ID(Version)",
     "version",
-    "timestamp:datetime",
+    "timestamp:DATETIME",
     "repository",
-    "file_count",
-    "unpacked_size",
+    "file_count:INT",
+    "unpacked_size:LONG",
     "install_script",
     "uninstall_script",
   ]);
@@ -119,7 +119,7 @@ export const createCsvs = () => {
   ]);
   nextVersionCsv = createStringifier(nextVersionWriter, [
     ":START_ID(Version)",
-    "interval",
+    "interval:DURATION",
     ":END_ID(Version)",
   ]);
   dependsOnResolvesToCsv = createStringifier(dependsOnResolvesToWriter, [
